@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -16,6 +17,18 @@ func tagMiddleware(tag string) Middleware {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(tag))
+			h.ServeHTTP(w, r)
+		})
+	}
+}
+
+// A constructor for middleware
+// that writes its own "tag" into the RW and does nothing else.
+// Useful in checking if a chain is behaving in the right order.
+func tagJasonMiddleware(tag string) Middleware {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(tag + " Jason!"))
 			h.ServeHTTP(w, r)
 		})
 	}
@@ -99,8 +112,16 @@ func TestThenOrdersHandlersCorrectly(t *testing.T) {
 
 func TestAppendAddsHandlersCorrectly(t *testing.T) {
 	c := New(tagMiddleware("t1\n"), tagMiddleware("t2\n"))
+	fmt.Println(c)
 	c = c.Append(tagMiddleware("t3\n"), tagMiddleware("t4\n"))
+	fmt.Println(c)
+	c = c.Append(tagJasonMiddleware(("test")))
+	fmt.Println(c)
+	fmt.Println(testApp)
 	h := c.Then(testApp)
+	fmt.Println(testApp)
+	fmt.Println(c)
+	fmt.Println(h)
 
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "/", nil)
